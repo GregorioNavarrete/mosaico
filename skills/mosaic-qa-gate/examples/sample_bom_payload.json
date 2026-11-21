@@ -1,0 +1,29 @@
+{
+  "calibrationBar10CmPt": 283.464567,
+  "canvasCountsByPaletteId": {
+    "1": 120,
+    "2": 80
+  },
+  "bomItems": [
+    {
+      "paletteId": 1,
+      "netTiles": 120,
+      "wasteFactor": 0.10,
+      "totalTilesWithWaste": 132,
+      "tilesPerBox": 50,
+      "boxesNeeded": 3
+    },
+    {
+      "paletteId": 2,
+      "netTiles": 80,
+      "wasteFactor": 0.15,
+      "totalTilesWithWaste": 92,
+      "tilesPerBox": 50,
+      "boxesNeeded": 2
+    }
+  ],
+  "benchmark": {
+    "tileCount": 10000,
+    "fps": 45
+  }
+}

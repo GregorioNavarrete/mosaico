@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "polygonCm": [[0, 0], [2, 0], [2, 2], [0, 2]],
+    "areaCm2": 4,
+    "perimeterCm": 8,
+    "centroidCm": [1, 1],
+    "nominalAreaCm2": 4,
+    "cutRatio": 1,
+    "isCut": false,
+    "orientationDeg": 0,
+    "paletteId": 1
+  },
+  {
+    "id": 2,
+    "polygonCm": [[0, 2], [1, 2], [1, 4], [0, 4]],
+    "areaCm2": 2,
+    "perimeterCm": 6,
+    "centroidCm": [0.5, 3],
+    "nominalAreaCm2": 4,
+    "cutRatio": 0.5,
+    "isCut": true,
+    "orientationDeg": 0,
+    "paletteId": 1
+  }
+]

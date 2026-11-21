@@ -1,0 +1,29 @@
+{
+  "name": "guia-mosaico",
+  "version": "1.0.0",
+  "description": "Plataforma MVC para generación de plantillas de mosaico a escala real (1:1), diseño paramétrico/Trencadís, BOM y transferencia visual en pared.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test tests/**/*.test.js",
+    "qa:math": "node skills/mosaic-math-pdf/scripts/verify_mosaic_math.mjs --self-test",
+    "qa:gate": "node skills/mosaic-qa-gate/scripts/check_bom_integrity.mjs --self-test",
+    "qa:mvc": "node skills/mosaic-mvc-express/scripts/verify_mvc_structure.mjs",
+    "qa:patterns": "node skills/mosaic-patterns-lab/scripts/verify_patterns_geometry.mjs --self-test",
+    "qa:all": "npm run qa:mvc && npm run qa:math && npm run qa:patterns && npm run qa:gate && npm test"
+  },
+  "dependencies": {
+    "@fontsource/dm-mono": "^5.1.0",
+    "@fontsource/dm-sans": "^5.1.0",
+    "@fontsource/manrope": "^5.1.0",
+    "d3-delaunay": "^6.0.4",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "multer": "^2.5.0",
+    "pdf-lib": "^1.17.1",
+    "sharp": "^0.35.5"
+  }
+}

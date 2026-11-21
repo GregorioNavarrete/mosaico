@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= typeof title !== 'undefined' ? title : 'GuíaMosaico · Estudio de Plantillas 1:1' %></title>
+  <link rel="icon" type="image/svg+xml" href="/public/favicon.svg" />
+  <link rel="stylesheet" href="/public/css/tokens.css" />
+  <link rel="stylesheet" href="/public/css/layout.css" />
+  <link rel="stylesheet" href="/public/css/components.css" />
+  <link rel="stylesheet" href="/public/css/ar-camera.css" />
+</head>
+<body>
+  <!-- =====================================================================
+       ZONA 1: BARRA SUPERIOR EDITORIAL (MARCA, PROYECTOS, HUD, EXPORTAR)
+       ===================================================================== -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">M</div>
+      <div>
+        <div class="brand-heading">
+          <h1 class="brand-title">GuíaMosaico</h1>
+          <span class="badge-phase"><%= typeof phaseStatus !== 'undefined' ? phaseStatus : 'Fase 1 · Estudio 1:1' %></span>
+        </div>
+        <p class="brand-subtitle">Plantillas Multipapel (1:1) &amp; Editor de Mosaicos</p>
+      </div>
+    </div>
+
+    <!-- Barra de gestión de proyectos JSON -->
+    <div class="project-bar" aria-label="Gestión de proyectos">
+      <div class="project-select-wrap">
+        <select id="project-select" class="select-control is-compact" title="Abrir proyecto guardado">
+          <option value="">Proyecto sin guardar</option>
+        </select>
+      </div>
+      <div class="project-name-wrap">
+        <input
+          id="project-name-input"
+          type="text"
+          class="input-control is-compact"
+          value="Mural Mediterráneo"
+          maxlength="80"
+          placeholder="Nombre del proyecto"
+          aria-label="Nombre del proyecto"
+        />
+      </div>
+      <div class="project-actions">
+        <button id="btn-project-new" type="button" class="btn btn-secondary btn-sm" title="Crear nuevo proyecto">Nuevo</button>
+        <button id="btn-project-save" type="button" class="btn btn-primary btn-sm" title="Guardar proyecto en servidor">Guardar</button>
+        <button id="btn-project-duplicate" type="button" class="btn btn-secondary btn-sm" title="Duplicar proyecto guardado">Duplicar</button>
+        <button id="btn-project-delete" type="button" class="btn btn-danger-soft btn-sm" title="Eliminar proyecto guardado">Eliminar</button>
+      </div>
+    </div>
+
+    <!-- Indicadores HUD en vivo -->
+    <div class="hud-group" aria-live="polite">
+      <div class="hud-pill">
+        <span class="hud-pill-label">Medidas</span>
+        <strong id="hud-dims" class="hud-pill-val">120 × 90 cm</strong>
+      </div>
+      <div class="hud-pill">
+        <span id="hud-pages-label" class="hud-pill-label">Hojas A4</span>
+        <strong id="hud-pages" class="hud-pill-val is-forest">7 × 4 (28)</strong>
+      </div>
+      <div class="hud-pill">
+        <span class="hud-pill-label">Teselas</span>
+        <strong id="hud-tiles" class="hud-pill-val">2.700</strong>
+      </div>
+      <div id="hud-mirror-badge" class="hud-mirror-badge">
+        <span>Modo Directo</span>
+      </div>
+    </div>
+
+    <!-- Botones Principales: Cámara AR y Exportación PDF -->
+    <div class="topbar-cta">
+      <button id="btn-open-ar" type="button" class="btn btn-forest-cta btn-lg" title="Ver mural o dibujo a escala real en pared o piso con la cámara">
+        <span>📷 Ver en Cámara (Pared/Piso)</span>
+      </button>
+      <button id="btn-export-pdf" type="button" class="btn btn-primary btn-lg">
+        <svg class="icon-md" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <span>Exportar PDF (1:1)</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- =====================================================================
+       CUERPO PRINCIPAL: SIDEBAR IZQUIERDO + ÁREA CENTRAL DE ESTUDIO
+       ===================================================================== -->
+  <div class="studio-body">
+    <!-- ZONA 2: PANEL IZQUIERDO DE CONTROLES -->
+    <aside class="studio-sidebar">
+      <div class="sidebar-tabs" role="tablist" aria-label="Paneles de configuración">
+        <button id="tab-btn-f1" type="button" data-tab="f1" role="tab" aria-selected="true" class="tab-btn is-active">
+          <span class="tab-num">1</span>
+          <span>Escala y Papel</span>
+        </button>
+        <button id="tab-btn-f2" type="button" data-tab="f2" role="tab" aria-selected="false" class="tab-btn">
+          <span class="tab-num is-terra">2</span>
+          <span>Editor Mosaico</span>
+        </button>
+        <button id="tab-btn-f3" type="button" data-tab="f3" role="tab" aria-selected="false" class="tab-btn" aria-label="3. Cámara AR">
+          <span class="tab-num">3</span>
+          <span>Cámara AR</span>
+        </button>
+      </div>
+
+      <div class="sidebar-scroll">
+        <!-- ======================= PESTAÑA 1: ESCALA Y PAPEL ======================= -->
+        <div id="panel-f1" class="panel-stack" role="tabpanel" aria-labelledby="tab-btn-f1">
+          <!-- Carga de imagen -->
+          <section class="control-section">
+            <div class="section-header-row">
+              <h2 class="section-title">1. Imagen base</h2>
+              <button id="btn-load-sample" type="button" class="btn-link">Cargar ejemplo</button>
+            </div>
+
+            <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Subir imagen JPG, PNG o WebP">
+              <input id="file-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" />
+              <div class="dropzone-icon" aria-hidden="true">
+                <svg class="icon-md" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <p class="dropzone-title">Arrastra una imagen o haz clic</p>
+              <p class="dropzone-hint">JPG, PNG o WebP · Validación OWASP</p>
+              <span id="file-name-display" class="file-badge">ejemplo_paisaje_mosaico.png</span>
+            </div>
+          </section>
+
+          <hr class="section-divider" />
+
+          <!-- Dimensiones físicas -->
+          <section class="control-section">
+            <h2 class="section-title">2. Dimensiones finales (cm)</h2>
+
+            <div class="grid-2">
+              <div>
+                <label for="input-width-cm" class="field-label">Ancho (W)</label>
+                <div class="input-with-unit">
+                  <input id="input-width-cm" type="number" min="5" max="2500" step="0.5" value="120" class="input-control is-mono" />
+                  <span class="input-unit">cm</span>
+                </div>
+              </div>
+              <div>
+                <label for="input-height-cm" class="field-label">Alto (H)</label>
+                <div class="input-with-unit">
+                  <input id="input-height-cm" type="number" min="5" max="2500" step="0.5" value="90" class="input-control is-mono" />
+                  <span class="input-unit">cm</span>
+                </div>
+              </div>
+            </div>
+
+            <label class="checkbox-row">
+              <input id="chk-keep-ratio" type="checkbox" checked />
+              <span>Mantener proporción original</span>
+            </label>
+          </section>
+
+          <hr class="section-divider" />
+
+          <!-- Configuración de papel multipapel -->
+          <section class="control-section">
+            <h2 class="section-title">3. Configuración de papel (1:1)</h2>
+
+            <div>
+              <label for="select-paper-format" class="field-label">Formato de papel</label>
+              <select id="select-paper-format" class="select-control">
+                <option value="A4" selected>A4 (21.0 × 29.7 cm)</option>
+                <option value="A3">A3 (29.7 × 42.0 cm)</option>
+                <option value="LETTER">Carta (21.59 × 27.94 cm)</option>
+                <option value="LEGAL">Oficio / Legal (21.59 × 35.56 cm)</option>
+                <option value="CUSTOM">Personalizado</option>
+              </select>
+            </div>
+
+            <div id="custom-paper-fields" class="grid-2 hidden">
+              <div>
+                <label for="input-custom-paper-w" class="field-label">Ancho papel (cm)</label>
+                <input id="input-custom-paper-w" type="number" min="5" max="200" step="0.1" value="21.0" class="input-control is-mono" />
+              </div>
+              <div>
+                <label for="input-custom-paper-h" class="field-label">Alto papel (cm)</label>
+                <input id="input-custom-paper-h" type="number" min="5" max="200" step="0.1" value="29.7" class="input-control is-mono" />
+              </div>
+            </div>
+
+            <div>
+              <span class="field-label">Orientación de hoja</span>
+              <div class="grid-2">
+                <button id="btn-orient-portrait" type="button" class="option-btn is-active" data-orient="portrait">
+                  <span class="orient-icon-portrait" aria-hidden="true"></span>
+                  <span>Vertical <span id="orient-portrait-dims" class="orient-dims">21×29.7</span></span>
+                </button>
+                <button id="btn-orient-landscape" type="button" class="option-btn" data-orient="landscape">
+                  <span class="orient-icon-landscape" aria-hidden="true"></span>
+                  <span>Horizontal <span id="orient-landscape-dims" class="orient-dims">29.7×21</span></span>
+                </button>
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div>
+                <label for="input-margin-cm" class="field-label">Margen (cm)</label>
+                <input id="input-margin-cm" type="number" min="0.2" max="5" step="0.1" value="1.0" class="input-control is-mono" />
+              </div>
+              <div>
+                <label for="input-overlap-cm" class="field-label">Solapamiento (cm)</label>
+                <input id="input-overlap-cm" type="number" min="0" max="8" step="0.1" value="0.5" class="input-control is-mono" />
+              </div>
+            </div>
+
+            <!-- Tarjeta matemática resumen -->
+            <div class="math-card">
+              <div class="math-card-top">
+                <span id="calc-grid-title" class="math-card-label">Cálculo de cuadrícula A4</span>
+                <strong id="calc-pages-total" class="math-card-total">28 hojas</strong>
+              </div>
+              <div class="grid-2">
+                <div class="math-stat-box">
+                  <span class="math-stat-sub">Área útil (Ux × Uy)</span>
+                  <span id="calc-usable">19.0 × 27.7 cm</span>
+                </div>
+                <div class="math-stat-box">
+                  <span class="math-stat-sub">Columnas × Filas (Nx × Ny)</span>
+                  <span id="calc-grid-nxny">7 cols × 4 filas</span>
+                </div>
+              </div>
+              <div id="calc-grid-error" class="math-error-banner hidden" role="alert"></div>
+            </div>
+          </section>
+
+          <hr class="section-divider" />
+
+          <!-- Transferencia y guías -->
+          <section class="control-section">
+            <h2 class="section-title">4. Transferencia y guías</h2>
+
+            <label class="checkbox-card">
+              <input id="chk-mirror" type="checkbox" />
+              <div>
+                <span class="checkbox-card-title">Modo Espejo (Método Indirecto)</span>
+                <span class="checkbox-card-desc">Invierte horizontalmente la vista previa y el PDF para armar boca abajo sobre papel engomado o malla.</span>
+              </div>
+            </label>
+
+            <label class="checkbox-row">
+              <input id="chk-show-a4-grid" type="checkbox" checked />
+              <span>Mostrar cuadrícula de hojas (A1, A2...)</span>
+            </label>
+          </section>
+        </div>
+
+        <!-- ======================= PESTAÑA 2: EDITOR MOSAICO / PÓSTER ======================= -->
+        <div id="panel-f2" class="panel-stack hidden" role="tabpanel" aria-labelledby="tab-btn-f2">
+          <!-- Switch y selector principal Modo de Trabajo (Mosaico vs Póster) -->
+          <div class="workmode-header-card">
+            <div class="mosaic-mode-card">
+              <div>
+                <h2 class="mosaic-mode-title">Modo Mosaico (Teselas)</h2>
+                <p class="mosaic-mode-sub">Alterna entre patrón de teselas o póster de referencia</p>
+              </div>
+              <label class="switch" aria-label="Activar o desactivar Modo Mosaico">
+                <input id="chk-mosaic-mode" type="checkbox" checked />
+                <span class="switch-track"></span>
+              </label>
+            </div>
+            <div class="grid-2 workmode-toggle-row" role="group" aria-label="Modo de trabajo">
+              <button id="btn-workmode-mosaic" type="button" class="option-btn is-active">Mosaico Teselas</button>
+              <button id="btn-workmode-poster" type="button" class="option-btn">Póster / Contraste</button>
+            </div>
+          </div>
+
+          <div id="f2-controls-wrapper" class="panel-stack">
+            <div id="mosaic-only-controls" class="panel-stack">
+            <!-- 1. Geometría y 9 Patrones Arquitectónicos -->
+            <section class="control-section">
+              <h3 class="section-title">1. Geometría y patrón</h3>
+
+              <div>
+                <div class="range-header">
+                  <label for="range-tile-size" class="field-label-inline">Tamaño de tesela</label>
+                  <span id="val-tile-size" class="pill-value">2.0 cm</span>
+                </div>
+                <input id="range-tile-size" type="range" min="1" max="5" step="0.5" value="2.0" />
+                <div class="range-ticks">
+                  <span>1.0 cm</span><span>2.0 cm</span><span>3.0 cm</span><span>4.0 cm</span><span>5.0 cm</span>
+                </div>
+              </div>
+
+              <div>
+                <span class="field-label">Patrón de colocación (9 arquitectónicos)</span>
+                <div class="pattern-grid">
+                  <button id="btn-pattern-grid" type="button" class="pattern-btn option-btn is-active" data-pattern="grid">
+                    <svg class="icon-sm" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true">
+                      <rect x="1.5" y="1.5" width="5.5" height="5.5" /><rect x="9" y="1.5" width="5.5" height="5.5" />
+                      <rect x="1.5" y="9" width="5.5" height="5.5" /><rect x="9" y="9" width="5.5" height="5.5" />
+                    </svg>
+                    <span>Cuadrícula</span>
+                  </button>
+                  <button id="btn-pattern-brick" type="button" class="pattern-btn option-btn" data-pattern="brick_50">
+                    <svg class="icon-sm" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" aria-hidden="true">
+                      <rect x="1.5" y="1.5" width="6" height="5.5" /><rect x="9" y="1.5" width="5.5" height="5.5" />
+                      <rect x="1.5" y="9" width="3" height="5.5" /><rect x="6" y="9" width="6" height="5.5" /><rect x="13.5" y="9" width="1.5" height="5.5" />
+                    </svg>
+                    <span>Ladrillo 50%</span>
+                  </button>
+                  <button id="btn-pattern-brick-33" type="button" class="pattern-btn option-btn" data-pattern="brick_33">
+                    <svg class="icon-sm" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+                      <rect x="1.5" y="1.5" width="6" height="3.5" /><rect x="9" y="1.5" width="5.5" height="3.5" />
+                      <rect x="1.5" y="6.2" width="4" height="3.5" /><rect x="7" y="6.2" width="6" height="3.5" />
+                      <rect x="1.5" y="11" width="2" height="3.5" /><rect x="5" y="11" width="6" height="3.5" /><rect x="12.5" y="11" width="2" height="3.5" />
+                    </svg>
+                    <span>Ladrillo 33%</span>
+                  </button>
+                  <button id="btn-pattern-diamond-45" type="button" class="pattern-btn option-btn" data-pattern="diamond_45">
+                    <svg class="icon-sm" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+                      <polygon points="8,1 12.5,5.5 8,10 3.5,5.5" />
+                      <polygon points="3.5,5.5 8,10 3.5,14.5 1,12" />
+                      <polygon points="12.5,5.5 15,8 12.5,14.5 8,10" />
+                    </svg>
+                    <span>Diamante 45°</span>
+                  </button>
+                  <button id="btn-pattern-hexagonal" type="button" class="pattern-btn option-btn" data-pattern="hexagonal">
+                    <svg class="icon-sm" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+                      <polygon points="5,1.5 8,3.2 8,6.7 5,8.4 2,6.7 2,3.2" />
+                      <polygon points="11,1.5 14,3.2 14,6.7 11,8.4 8,6.7 8,3.2" />
+                      <polygon points="8,6.7 11,8.4 11,11.9 8,13.6 5,11.9 5,8.4" />
+                    </svg>
+                    <span>Hexagonal</span>
+                  </button>
+                  <button id="btn-pattern-herringbone" type="button" class="pattern-btn option-btn" data-pattern="herringbone">
+                    <svg class="icon-sm" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+                      <path d="M2 5 L6 1 L9 4 L5 8 Z" />
+                      <path d="M6 7 L10 3 L14 7 L10 11 Z" />
+                      <path d="M2 11 L6 7 L9 10 L5 14 Z" />
+                    </svg>
+                    <span>Espiga</span>
+                  </button>
+                  <button id="btn-pattern-basketweave" type="button" class="pattern-btn option-btn" data-pattern="basketweave">
+                    <svg class="icon-sm" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+                      <rect x="1.5" y="1.5" width="6" height="2.7" /><rect x="1.5" y="5" width="6" height="2.7" />
+                      <rect x="9" y="1.5" width="2.6" height="6.2" /><rect x="12.2" y="1.5" width="2.6" height="6.2" />
+                      <rect x="1.5" y="9" width="2.6" height="5.5" /><rect x="4.8" y="9" width="2.6" height="5.5" />
+                      <rect x="9" y="9" width="5.8" height="2.4" /><rect x="9" y="12.1" width="5.8" height="2.4" />
+                    </svg>
+                    <span>Basketweave</span>
+                  </button>
+                  <button id="btn-pattern-fish-scale" type="button" class="pattern-btn option-btn" data-pattern="fish_scale">
+                    <svg class="icon-sm" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+                      <path d="M1.5 7 A3.2 3.2 0 0 1 8 7 A3.2 3.2 0 0 1 14.5 7" />
+                      <path d="M4.8 11.2 A3.2 3.2 0 0 1 11.2 11.2" />
+                      <path d="M1.5 14.5 A3.2 3.2 0 0 1 5 11.5 M11 11.5 A3.2 3.2 0 0 1 14.5 14.5" />
+                    </svg>
+                    <span>Escama</span>
+                  </button>
+                  <button id="btn-pattern-penny-round" type="button" class="pattern-btn option-btn" data-pattern="penny_round">
+                    <svg class="icon-sm" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+                      <circle cx="4.2" cy="4.2" r="2.2" /><circle cx="10.2" cy="4.2" r="2.2" />
+                      <circle cx="7.2" cy="9.2" r="2.2" /><circle cx="13" cy="9.2" r="1.8" />
+                      <circle cx="4.2" cy="13.4" r="1.8" /><circle cx="10.2" cy="13.4" r="1.8" />
+                    </svg>
+                    <span>Penny Round</span>
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <hr class="section-divider" />
+
+            <!-- 2. Modo de Generación -->
+            <section class="control-section">
+              <h3 class="section-title">2. Modo de generación</h3>
+              <div class="grid-3">
+                <button id="btn-genmode-image" type="button" data-genmode="image" class="genmode-btn option-btn is-active">Imagen</button>
+                <button id="btn-genmode-mixture" type="button" data-genmode="mixture" class="genmode-btn option-btn">Mezcla %</button>
+                <button id="btn-genmode-gradient" type="button" data-genmode="gradient" class="genmode-btn option-btn">Degradado</button>
+              </div>
+
+              <!-- Panel contextual Mezcla porcentual -->
+              <div id="genmode-mixture-panel" class="subpanel-box hidden">
+                <div class="subpanel-header">
+                  <span>Proporción de mezcla</span>
+                  <span id="mix-pct-total" class="pill-value">100%</span>
+                </div>
+                <div class="stop-row">
+                  <span class="stop-label">C1</span>
+                  <input id="mix-color-1" type="color" value="#36594d" aria-label="Color mezcla 1" />
+                  <div class="input-with-unit">
+                    <input id="mix-pct-1" type="number" min="0" max="100" step="1" value="50" class="input-control is-mono" aria-label="Porcentaje color 1" />
+                    <span class="input-unit">%</span>
+                  </div>
+                </div>
+                <div class="stop-row">
+                  <span class="stop-label">C2</span>
+                  <input id="mix-color-2" type="color" value="#e9bf8a" aria-label="Color mezcla 2" />
+                  <div class="input-with-unit">
+                    <input id="mix-pct-2" type="number" min="0" max="100" step="1" value="30" class="input-control is-mono" aria-label="Porcentaje color 2" />
+                    <span class="input-unit">%</span>
+                  </div>
+                </div>
+                <div class="stop-row">
+                  <span class="stop-label">C3</span>
+                  <input id="mix-color-3" type="color" value="#bd754e" aria-label="Color mezcla 3" />
+                  <div class="input-with-unit">
+                    <input id="mix-pct-3" type="number" min="0" max="100" step="1" value="20" class="input-control is-mono" aria-label="Porcentaje color 3" />
+                    <span class="input-unit">%</span>
+                  </div>
+                </div>
+                <button id="btn-apply-mixture" type="button" class="btn btn-primary btn-sm">Aplicar mezcla</button>
+              </div>
+
+              <!-- Panel contextual Degradado direccional -->
+              <div id="genmode-gradient-panel" class="subpanel-box hidden">
+                <div class="subpanel-header">
+                  <span>Paradas de degradado</span>
+                  <label class="checkbox-row" style="font-size: 0.67rem; gap: 0.3rem;">
+                    <input id="chk-grad-stop-3" type="checkbox" checked />
+                    <span>3er color</span>
+                  </label>
+                </div>
+                <div class="stop-row">
+                  <span class="stop-label">P1</span>
+                  <input id="grad-color-1" type="color" value="#263f36" aria-label="Color degradado 1" />
+                  <div class="input-with-unit">
+                    <input id="grad-pos-1" type="number" min="0" max="100" step="5" value="0" class="input-control is-mono" aria-label="Posición parada 1" />
+                    <span class="input-unit">%</span>
+                  </div>
+                </div>
+                <div class="stop-row">
+                  <span class="stop-label">P2</span>
+                  <input id="grad-color-2" type="color" value="#e9bf8a" aria-label="Color degradado 2" />
+                  <div class="input-with-unit">
+                    <input id="grad-pos-2" type="number" min="0" max="100" step="5" value="55" class="input-control is-mono" aria-label="Posición parada 2" />
+                    <span class="input-unit">%</span>
+                  </div>
+                </div>
+                <div id="grad-stop-3-row" class="stop-row">
+                  <span class="stop-label">P3</span>
+                  <input id="grad-color-3" type="color" value="#c45b3e" aria-label="Color degradado 3" />
+                  <div class="input-with-unit">
+                    <input id="grad-pos-3" type="number" min="0" max="100" step="5" value="100" class="input-control is-mono" aria-label="Posición parada 3" />
+                    <span class="input-unit">%</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="range-header">
+                    <label for="range-grad-angle" class="field-label-inline">Ángulo dirección</label>
+                    <span id="val-grad-angle" class="pill-value">135°</span>
+                  </div>
+                  <input id="range-grad-angle" type="range" min="0" max="360" step="15" value="135" />
+                </div>
+                <button id="btn-apply-gradient" type="button" class="btn btn-primary btn-sm">Aplicar degradado</button>
+              </div>
+            </section>
+
+            <hr class="section-divider" />
+
+            <!-- 3. Preprocesado Artístico -->
+            <section id="image-preprocess-section" class="control-section">
+              <h3 class="section-title">3. Preprocesado artístico</h3>
+              <div>
+                <label for="select-preprocess-mode" class="field-label">Filtro suavizador de bordes</label>
+                <select id="select-preprocess-mode" class="select-control">
+                  <option value="none" selected>Sin filtro (original)</option>
+                  <option value="bilateral">Bilateral (suavizado bordes)</option>
+                  <option value="kuwahara">Kuwahara (efecto pictórico)</option>
+                </select>
+              </div>
+              <label class="checkbox-row">
+                <input id="chk-remove-bg" type="checkbox" />
+                <span>Limpiar fondo local ΔE00</span>
+              </label>
+            </section>
+
+            <hr class="section-divider" />
+
+            <!-- 4. Colorimetría, Paleta K-Means y Dithering -->
+            <section id="image-color-section" class="control-section">
+              <div class="range-header">
+                <h3 class="section-title">4. Colorimetría y K-Means</h3>
+                <span id="val-colors-count" class="pill-value is-terra">10 colores</span>
+              </div>
+              <input id="range-colors" type="range" min="2" max="24" step="1" value="10" aria-label="Cantidad de colores K-Means" />
+              <div class="range-ticks">
+                <span>2</span><span>8</span><span>16</span><span>24 colores</span>
+              </div>
+
+              <div class="grid-2">
+                <div>
+                  <label for="select-color-space" class="field-label">Espacio cromático</label>
+                  <select id="select-color-space" class="select-control is-compact">
+                    <option value="cielab" selected>CIE L*a*b* (ΔE00)</option>
+                    <option value="redmean">Redmean RGB</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="select-dither-mode" class="field-label">Dithering</label>
+                  <select id="select-dither-mode" class="select-control is-compact">
+                    <option value="none" selected>Ninguno</option>
+                    <option value="floyd-steinberg">Floyd-Steinberg</option>
+                    <option value="bayer">Bayer 4×4</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <div class="range-header">
+                  <label for="range-dither-strength" class="field-label-inline">Fuerza dithering</label>
+                  <span id="val-dither-strength" class="pill-value">65%</span>
+                </div>
+                <input id="range-dither-strength" type="range" min="0" max="100" step="5" value="65" />
+              </div>
+            </section>
+
+            <hr class="section-divider" />
+
+            <!-- 5. Junta / Pastina -->
+            <section class="control-section">
+              <h3 class="section-title">5. Junta / Pastina</h3>
+
+              <div class="grout-row">
+                <div class="grout-presets">
+                  <button type="button" data-grout="#FFFFFF" title="Blanco" class="grout-preset" style="background-color: #ffffff;"></button>
+                  <button type="button" data-grout="#D6D3CB" title="Gris claro" class="grout-preset is-active" style="background-color: #d6d3cb;"></button>
+                  <button type="button" data-grout="#D8C7AB" title="Arena" class="grout-preset" style="background-color: #d8c7ab;"></button>
+                  <button type="button" data-grout="#5C615E" title="Gris oscuro" class="grout-preset" style="background-color: #5c615e;"></button>
+                  <button type="button" data-grout="#1F2421" title="Negro" class="grout-preset" style="background-color: #1f2421;"></button>
+                </div>
+                <label class="grout-picker-pill">
+                  <span>Otro</span>
+                  <input id="input-grout-color" type="color" value="#d6d3cb" aria-label="Color personalizado de junta" />
+                </label>
+              </div>
+
+              <div>
+                <div class="range-header">
+                  <label for="range-grout-mm" class="field-label-inline">Grosor de junta</label>
+                  <span id="val-grout-mm" class="pill-value">1.5 mm</span>
+                </div>
+                <input id="range-grout-mm" type="range" min="0" max="5" step="0.5" value="1.5" />
+              </div>
+            </section>
+
+            <hr class="section-divider" />
+
+            <!-- 6. Acabado, Visualización y Breakdown -->
+            <section class="control-section">
+              <h3 class="section-title">6. Acabado y visualización</h3>
+
+              <div>
+                <label for="select-tile-finish" class="field-label">Acabado superficial</label>
+                <select id="select-tile-finish" class="select-control">
+                  <option value="ceramic" selected>Cerámico (bisel sutil)</option>
+                  <option value="glass">Vítreo (brillo diagonal)</option>
+                  <option value="matte">Mate (plano)</option>
+                </select>
+              </div>
+
+              <div class="grid-4">
+                <button type="button" data-vmode="color" class="vmode-btn option-btn is-active">Color</button>
+                <button type="button" data-vmode="grayscale" class="vmode-btn option-btn">Grises</button>
+                <button type="button" data-vmode="contour" class="vmode-btn option-btn">Contorno</button>
+                <button id="btn-vmode-breakdown" type="button" data-vmode="breakdown" class="vmode-btn option-btn">Breakdown</button>
+              </div>
+
+              <div id="breakdown-hint" class="breakdown-hint hidden">
+                Aislando color activo en la paleta. Haz clic en cualquier color inferior para cambiar de capa.
+              </div>
+
+              <label class="checkbox-row">
+                <input id="chk-show-numbers" type="checkbox" checked />
+                <span>Mostrar números de color en cada tesela</span>
+              </label>
+
+              <label class="checkbox-row">
+                <input id="chk-show-a4-grid-f2" type="checkbox" checked />
+                <span>Mostrar cuadrícula de hojas</span>
+              </label>
+            </section>
+
+            <hr class="section-divider" />
+
+            <section class="control-section">
+              <button id="btn-recalculate-mosaic" type="button" class="btn btn-terra">
+                <svg class="icon-sm" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Recalcular desde imagen</span>
+              </button>
+            </section>
+            </div>
+
+            <!-- Controles activos cuando Modo Mosaico === false (Modo Póster / Referencia) -->
+            <div id="poster-only-controls" class="panel-stack hidden">
+              <section class="control-section">
+                <div class="poster-hero-card">
+                  <h3 class="poster-hero-title">Imagen de Referencia / Póster Gigante (Sin Mosaico)</h3>
+                  <p class="poster-hero-desc">
+                    Ajusta contraste, grises o contorno para calcar en pared o imprimir plantillas gigantes 1:1 hasta 1000 páginas.
+                  </p>
+                </div>
+
+                <div>
+                  <span class="field-label">Filtro de referencia</span>
+                  <div class="poster-mode-grid">
+                    <button id="btn-poster-color" type="button" class="poster-mode-btn option-btn is-active" data-poster-mode="color">Original</button>
+                    <button id="btn-poster-grayscale" type="button" class="poster-mode-btn option-btn" data-poster-mode="grayscale">Grises</button>
+                    <button id="btn-poster-contrast" type="button" class="poster-mode-btn option-btn" data-poster-mode="contrast_bw">Alto Contraste B/N</button>
+                    <button id="btn-poster-lineart" type="button" class="poster-mode-btn option-btn" data-poster-mode="line_art">Solo Contorno (Calcar)</button>
+                  </div>
+                </div>
+              </section>
+
+              <hr class="section-divider" />
+
+              <section class="control-section">
+                <h3 class="section-title">Ajustes de contraste y trazo</h3>
+
+                <div>
+                  <div class="range-header">
+                    <label for="range-poster-contrast" class="field-label-inline">Contraste</label>
+                    <span id="val-poster-contrast" class="pill-value">120%</span>
+                  </div>
+                  <input id="range-poster-contrast" type="range" min="40" max="300" step="5" value="120" />
+                  <div class="range-ticks">
+                    <span>40%</span><span>120%</span><span>200%</span><span>300%</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="range-header">
+                    <label for="range-poster-brightness" class="field-label-inline">Brillo</label>
+                    <span id="val-poster-brightness" class="pill-value">0</span>
+                  </div>
+                  <input id="range-poster-brightness" type="range" min="-80" max="80" step="2" value="0" />
+                  <div class="range-ticks">
+                    <span>-80</span><span>0</span><span>+80</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div class="range-header">
+                    <label for="range-poster-threshold" class="field-label-inline">Umbral / Detalle de trazo</label>
+                    <span id="val-poster-threshold" class="pill-value">128</span>
+                  </div>
+                  <input id="range-poster-threshold" type="range" min="16" max="240" step="2" value="128" />
+                  <div class="range-ticks">
+                    <span>16</span><span>128</span><span>240</span>
+                  </div>
+                </div>
+
+                <label class="checkbox-row">
+                  <input id="chk-poster-invert" type="checkbox" />
+                  <span>Invertir blanco y negro (fondo oscuro)</span>
+                </label>
+
+                <label class="checkbox-row">
+                  <input id="chk-show-a4-grid-poster" type="checkbox" checked />
+                  <span>Mostrar cuadrícula de hojas (A1, A2...)</span>
+                </label>
+              </section>
+            </div>
+          </div>
+        </div>
+
+        <!-- ======================= PESTAÑA 3: CÁMARA AR ======================= -->
+        <div id="panel-f3" class="panel-stack hidden" role="tabpanel" aria-labelledby="tab-btn-f3">
+          <section class="control-section">
+            <div class="ar-promo-card">
+              <span class="ar-promo-badge">Cámara en Vivo · Homografía 4 pts</span>
+              <h2 class="ar-promo-title">Ver en tu Pared o Piso con la Cámara</h2>
+              <p class="ar-promo-desc">
+                Apunta la cámara de tu laptop o celular hacia tu pared, piso o superficie real para proyectar tu obra y comprobar sus dimensiones exactas en centímetros antes de imprimir.
+              </p>
+            </div>
+
+            <div class="ar-launch-actions">
+              <button id="btn-ar-launch-live" type="button" class="btn btn-forest-cta btn-lg" style="width: 100%; justify-content: center;">
+                <span>📷 Iniciar Cámara en Vivo Ahora</span>
+              </button>
+              <button id="btn-ar-launch-photo" type="button" class="btn btn-secondary btn-sm" style="width: 100%; justify-content: center;" title="Tomar foto directa con la cámara de tu celular">
+                <span>📸 Tomar foto con cámara (Móvil)</span>
+              </button>
+              <div class="grid-2" style="width: 100%;">
+                <button id="btn-ar-launch-wall" type="button" class="btn btn-secondary">
+                  <span>🧱 Simular en Pared</span>
+                </button>
+                <button id="btn-ar-launch-floor" type="button" class="btn btn-secondary">
+                  <span>📐 Simular en Piso</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="ar-dimensions-summary-card" style="margin-top: 0.6rem; padding: 0.75rem; background: var(--color-surface); border: 1px solid var(--color-line); border-radius: var(--radius-sm);">
+              <span class="field-label" style="margin-bottom: 0.25rem;">Dimensiones que verás proyectadas:</span>
+              <div style="font-family: var(--font-mono); font-size: 0.85rem; font-weight: 700; color: var(--color-forest);" id="ar-tab-preview-dims">
+                120.0 × 90.0 cm · 1.08 m²
+              </div>
+              <p style="font-size: 0.7rem; color: var(--color-muted); margin: 0.35rem 0 0 0; line-height: 1.4;">
+                En la cámara podrás ajustar el tamaño (cm), activar "Solo contorno" para calcar en la pared y guardar fotos con medidas.
+              </p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ===================================================================
+         ZONA 3: ÁREA CENTRAL (TOOLBAR + CANVAS + PALETA NUMERADA)
+         =================================================================== -->
+    <main class="studio-main">
+      <!-- Barra de herramientas del Canvas -->
+      <div class="canvas-toolbar">
+        <div class="tool-group" role="toolbar" aria-label="Herramientas de edición de mosaico">
+          <button id="tool-pan" type="button" data-tool="pan" title="Ver y desplazar lienzo" class="tool-btn is-active">
+            <svg class="icon-sm" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
+            </svg>
+            <span>Ver</span>
+          </button>
+          <button id="tool-brush" type="button" data-tool="brush" title="Pintar teselas con el color activo" class="tool-btn">
+            <svg class="icon-sm" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            <span>Pincel</span>
+          </button>
+          <button id="tool-fill" type="button" data-tool="fill" title="Rellenar región conectada (Flood Fill)" class="tool-btn">
+            <svg class="icon-sm" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 11l-7-7-7 7 7 7 7-7zm0 0c1.5 2 2 3.5 2 5a2 2 0 11-4 0c0-1.5.5-3 2-5z" />
+            </svg>
+            <span>Bote</span>
+          </button>
+          <button id="tool-replace" type="button" data-tool="replace" title="Reemplazar todas las teselas del color clicado por el color activo" class="tool-btn">
+            <svg class="icon-sm" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+            </svg>
+            <span>Reemplazar Global</span>
+          </button>
+          <button id="tool-eyedropper" type="button" data-tool="eyedropper" title="Capturar color de una tesela" class="tool-btn">
+            <svg class="icon-sm" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485" />
+            </svg>
+            <span>Cuentagotas</span>
+          </button>
+
+          <div class="tool-divider" aria-hidden="true"></div>
+
+          <button id="btn-undo" type="button" disabled title="Deshacer último cambio (Ctrl+Z)" class="tool-btn">
+            <svg class="icon-sm" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+            </svg>
+            <span>Deshacer</span>
+            <span id="undo-count" class="history-count">(0)</span>
+          </button>
+          <button id="btn-redo" type="button" disabled title="Rehacer cambio (Ctrl+Y)" class="tool-btn">
+            <svg class="icon-sm" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 10H11a8 8 0 00-8 8v2m18-10l-6 6m6-6l-6-6" />
+            </svg>
+            <span>Rehacer</span>
+            <span id="redo-count" class="history-count">(0)</span>
+          </button>
+        </div>
+
+        <!-- Color activo -->
+        <div id="active-color-pill" class="active-color-pill">
+          <span style="color: var(--color-muted); font-size: 0.69rem;">Color activo:</span>
+          <span id="active-color-swatch" class="color-swatch-sm"></span>
+          <strong id="active-color-label" style="font-family: var(--font-mono); font-size: 0.71rem;">#1</strong>
+        </div>
+
+        <!-- Controles de Zoom -->
+        <div class="zoom-group" aria-label="Controles de zoom">
+          <button id="btn-zoom-out" type="button" title="Alejar" class="zoom-btn">−</button>
+          <span id="zoom-level" class="zoom-level">100%</span>
+          <button id="btn-zoom-in" type="button" title="Acercar" class="zoom-btn">+</button>
+          <button id="btn-zoom-fit" type="button" title="Ajustar mural a pantalla" class="zoom-fit-btn">Ajustar</button>
+        </div>
+      </div>
+
+      <!-- Viewport del Canvas -->
+      <div id="canvas-viewport" class="canvas-viewport studio-bg">
+        <canvas id="studio-canvas"></canvas>
+
+        <button id="btn-canvas-quick-ar" type="button" class="canvas-quick-ar-btn" title="Ver con la cámara cómo queda en tu pared o piso">
+          <span>📷 Ver en Cámara (Pared/Piso)</span>
+        </button>
+
+        <div id="worker-status-pill" class="worker-status-pill hidden" aria-live="polite">
+          <span class="worker-spinner" aria-hidden="true"></span>
+          <span>Calculando mosaico...</span>
+        </div>
+        <div id="cursor-info" class="cursor-info-pill hidden">Hoja A1 · 0.0, 0.0 cm</div>
+        <div id="mirror-overlay-tag" class="mirror-overlay-tag hidden">⇄ VISTA EN ESPEJO (MÉTODO INDIRECTO)</div>
+      </div>
+
+      <!-- Panel inferior: Paleta Numerada Interactiva -->
+      <section class="palette-dock" aria-label="Paleta numerada de colores">
+        <div class="palette-dock-header">
+          <div class="palette-title-group">
+            <h3 class="palette-title">Paleta Numerada de Colores</h3>
+            <span id="palette-subtitle" class="palette-subtitle">Haz clic en un color para seleccionarlo y pintar</span>
+          </div>
+          <span id="palette-summary" class="palette-summary">10 colores · 2.700 teselas</span>
+        </div>
+
+        <div id="palette-container" class="palette-strip"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- =====================================================================
+       MODAL DE EXPORTACIÓN PDF SELECTIVA (1:1)
+       ===================================================================== -->
+  <div id="pdf-export-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="pdf-modal-title">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 id="pdf-modal-title" class="modal-title">Exportar Plantilla PDF a Escala 1:1</h3>
+          <p class="modal-subtitle">Selecciona hojas específicas o un rango rectangular para imprimir al 100%.</p>
+        </div>
+        <button id="btn-pdf-cancel-export" type="button" class="btn btn-secondary btn-sm">Cerrar</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="section-header-row">
+          <span class="field-label" style="margin: 0;">Mapa interactivo de hojas</span>
+          <div style="display: flex; gap: 0.4rem;">
+            <button id="btn-pdf-select-all" type="button" class="btn btn-secondary btn-sm">Seleccionar todas</button>
+            <button id="btn-pdf-clear-all" type="button" class="btn btn-secondary btn-sm">Limpiar</button>
+          </div>
+        </div>
+
+        <div class="sheet-grid-box">
+          <div id="pdf-sheets-grid" class="sheet-grid-picker"></div>
+        </div>
+
+        <div>
+          <label for="pdf-range-input" class="field-label">Rango de hojas (opcional, ej: A1-B3, C2)</label>
+          <input id="pdf-range-input" type="text" class="input-control is-mono" placeholder="Ej: A1-B3, C2" />
+        </div>
+
+        <div class="pdf-split-box">
+          <div>
+            <label for="select-pdf-split-mode" class="field-label">Modo de salida y partición de PDFs</label>
+            <select id="select-pdf-split-mode" class="select-control">
+              <option value="single" selected>PDF único multipágina</option>
+              <option value="batches">Dividir en múltiples PDFs por lotes (.zip)</option>
+              <option value="per_sheet">1 PDF por cada hoja individual (.zip)</option>
+            </select>
+          </div>
+
+          <div id="pdf-batches-field" class="hidden">
+            <label for="input-pdf-sheets-per-file" class="field-label">Hojas por cada PDF</label>
+            <input id="input-pdf-sheets-per-file" type="number" min="1" max="50" value="10" class="input-control is-mono" />
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.45rem;">
+          <label class="checkbox-row">
+            <input id="chk-pdf-include-cover" type="checkbox" checked />
+            <span>Incluir portada de montaje (con regla de calibración 10.0 cm)</span>
+          </label>
+          <label class="checkbox-row">
+            <input id="chk-pdf-include-palette" type="checkbox" checked />
+            <span>Incluir hoja(s) de paleta numerada y conteo</span>
+          </label>
+        </div>
+
+        <div id="pdf-export-summary" class="pill-value" style="align-self: flex-start;">28 hojas seleccionadas</div>
+
+        <div id="pdf-export-status" class="export-status-box hidden" aria-live="polite">
+          <div style="display: flex; justify-content: space-between; font-size: 0.73rem; font-weight: 600;">
+            <span id="pdf-status-text">Generando PDF en el servidor...</span>
+            <span id="pdf-percent-label" style="font-family: var(--font-mono);">35%</span>
+          </div>
+          <div class="progress-track">
+            <div id="pdf-progress-bar" class="progress-fill" style="width: 35%"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btn-pdf-confirm-export" type="button" class="btn btn-primary btn-lg">Descargar PDF (1:1)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL DE PROTECCIÓN DE EDICIONES MANUALES
+       ===================================================================== -->
+  <div id="protect-edits-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="protect-modal-title">
+    <div class="modal-dialog is-sm">
+      <div class="modal-header">
+        <div>
+          <h3 id="protect-modal-title" class="modal-title">Conservar ediciones manuales</h3>
+          <p class="modal-subtitle">Tienes trazos realizados manualmente sobre el mosaico actual.</p>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p id="protect-edits-message" style="margin: 0; font-size: 0.8rem; line-height: 1.5; color: var(--color-ink);">
+          Al modificar este parámetro se volverá a cuantizar el mosaico desde la imagen y se perderán los trazos manuales actuales.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-protect-cancel" type="button" class="btn btn-secondary">Cancelar y conservar ediciones</button>
+        <button id="btn-protect-confirm" type="button" class="btn btn-terra">Recalcular (descartar trazos)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL DE CONFIRMACIÓN PARA ELIMINAR PROYECTO (SIN confirm())
+       ===================================================================== -->
+  <div id="delete-project-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
+    <div class="modal-dialog is-sm">
+      <div class="modal-header">
+        <div>
+          <h3 id="delete-modal-title" class="modal-title">Eliminar proyecto</h3>
+          <p class="modal-subtitle">Esta acción eliminará el proyecto guardado del almacenamiento local.</p>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p id="delete-project-message" style="margin: 0; font-size: 0.8rem; line-height: 1.5; color: var(--color-ink);">
+          ¿Deseas eliminar el proyecto seleccionado?
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-delete-cancel" type="button" class="btn btn-secondary">Cancelar</button>
+        <button id="btn-delete-confirm" type="button" class="btn btn-danger">Eliminar proyecto</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenedor de notificaciones Toast (sin alert()) -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <script type="module" src="/public/js/main.js"></script>
+</body>
+</html>

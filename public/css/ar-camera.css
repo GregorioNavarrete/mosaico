@@ -1,0 +1,541 @@
+/* =====================================================================
+   GUÍAMOSAIСO · ESTILO DE ESCENARIO AR & SIMULADOR EN PARED / PISO
+   Solo variables de tokens.css y recursos 100% offline.
+   ===================================================================== */
+
+.studio-main {
+  position: relative;
+}
+
+#ar-stage-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+}
+
+#ar-stage-overlay.hidden {
+  display: none !important;
+}
+
+/* Barra superior del modo AR */
+.ar-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.55rem 0.9rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-line);
+  box-shadow: var(--shadow-xs);
+  flex-shrink: 0;
+}
+
+.ar-topbar-title {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.ar-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--color-forest-soft);
+  color: var(--color-forest);
+  border: 1px solid rgba(54, 89, 77, 0.24);
+}
+
+.ar-heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.ar-status-text {
+  font-family: var(--font-mono);
+  font-size: 0.69rem;
+  color: var(--color-muted);
+}
+
+.ar-topbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.38rem 0.68rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-line);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 0.73rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 130ms ease, border-color 130ms ease, color 130ms ease;
+}
+
+.ar-btn:hover:not(:disabled) {
+  background: var(--color-surface);
+  border-color: var(--color-forest);
+}
+
+.ar-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ar-btn.is-active,
+.ar-btn-forest {
+  background: var(--color-forest);
+  border-color: var(--color-forest-dark);
+  color: var(--color-surface);
+}
+
+.ar-btn.is-active:hover:not(:disabled),
+.ar-btn-forest:hover:not(:disabled) {
+  background: var(--color-forest-dark);
+}
+
+.ar-btn-terra {
+  background: var(--color-terra);
+  border-color: var(--color-terra-dark);
+  color: var(--color-surface);
+}
+
+.ar-btn-terra:hover:not(:disabled) {
+  background: var(--color-terra-dark);
+}
+
+/* Área central + barra lateral/inferior */
+.ar-workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Escenario principal de cámara / fotografía */
+.ar-viewport {
+  flex: 1;
+  min-height: 260px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.85rem;
+  background-color: var(--color-board);
+  background-image: radial-gradient(var(--color-board-dot) 1px, transparent 1px);
+  background-size: 18px 18px;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+
+/* Contenedor exacto alineado al bounding box del video o foto */
+#ar-scene-box {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 1080px;
+  max-height: 720px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  touch-action: none;
+}
+
+#ar-video,
+#ar-photo-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+#ar-video.hidden,
+#ar-photo-img.hidden {
+  display: none;
+}
+
+/* Capa proyectada mediante matrix3d */
+#ar-warped-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform, opacity;
+  pointer-events: auto;
+  cursor: move;
+  box-shadow: 0 0 0 1px rgba(54, 89, 77, 0.35);
+}
+
+#ar-artwork-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* SVG con contorno del cuadrilátero y líneas guía */
+.ar-quad-outline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 4;
+}
+
+.ar-quad-poly {
+  fill: rgba(54, 89, 77, 0.04);
+  stroke: var(--color-forest);
+  stroke-width: 2;
+  stroke-dasharray: 7 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.ar-quad-poly.is-invalid {
+  stroke: var(--color-danger);
+  fill: rgba(185, 28, 28, 0.08);
+}
+
+.ar-quad-diags {
+  stroke: rgba(189, 117, 78, 0.55);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
+}
+
+/* 4 pines de esquina arrastrables */
+.ar-corner-pin {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  margin-top: -14px;
+  border-radius: 999px;
+  border: 2.5px solid var(--color-surface);
+  background: var(--color-forest);
+  color: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 700;
+  cursor: grab;
+  z-index: 8;
+  touch-action: none;
+  padding: 0;
+  transition: background-color 100ms ease, transform 100ms ease;
+}
+
+.ar-corner-pin::after {
+  content: '';
+  position: absolute;
+  inset: -9px;
+  border-radius: 999px;
+}
+
+.ar-corner-pin:hover,
+.ar-corner-pin.is-dragging {
+  background: var(--color-terra);
+  transform: scale(1.14);
+  cursor: grabbing;
+}
+
+/* Píldoras de dimensiones reales sobre borde superior e izquierdo */
+.ar-dim-callout {
+  position: absolute;
+  z-index: 7;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  padding: 0.22rem 0.52rem;
+  border-radius: var(--radius-xs);
+  background: rgba(36, 51, 45, 0.9);
+  color: var(--color-surface);
+  border: 1px solid rgba(255, 253, 248, 0.24);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+}
+
+.ar-dim-callout.is-terra {
+  background: rgba(156, 91, 56, 0.92);
+}
+
+/* Banner de aviso amigable (LAN HTTP / sin cámara) */
+.ar-camera-notice {
+  position: absolute;
+  top: 0.65rem;
+  left: 0.65rem;
+  right: 0.65rem;
+  z-index: 9;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 253, 248, 0.94);
+  border: 1px solid var(--color-terra);
+  color: var(--color-ink);
+  font-size: 0.72rem;
+  box-shadow: var(--shadow-md);
+}
+
+.ar-camera-notice.hidden {
+  display: none;
+}
+
+/* Resumen flotante de medidas en escena */
+.ar-metrics-hud {
+  position: absolute;
+  bottom: 0.65rem;
+  right: 0.65rem;
+  z-index: 7;
+  pointer-events: none;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.34rem 0.62rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 253, 248, 0.92);
+  border: 1px solid var(--color-line);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--color-ink);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Barra compacta de controles AR */
+.ar-controls-bar {
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-line);
+  padding: 0.65rem 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  flex-shrink: 0;
+}
+
+.ar-control-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.ar-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  font-size: 0.72rem;
+  color: var(--color-ink);
+}
+
+.ar-field label {
+  font-weight: 600;
+  color: var(--color-muted);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.ar-field input[type="range"] {
+  width: 82px;
+  accent-color: var(--color-forest);
+  cursor: pointer;
+}
+
+.ar-field input[type="number"] {
+  width: 84px;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.ar-mono-val {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-forest);
+  min-width: 2.3rem;
+  text-align: right;
+}
+
+.ar-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.32rem 0.55rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-line);
+  background: var(--color-paper);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ar-toggle-label input[type="checkbox"] {
+  accent-color: var(--color-forest);
+  cursor: pointer;
+}
+
+/* Indicador de cámara activa en vivo */
+.ar-live-badge {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(36, 51, 45, 0.94);
+  color: #a3e635;
+  border: 1px solid rgba(163, 230, 53, 0.4);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
+}
+
+.ar-live-badge::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #a3e635;
+  box-shadow: 0 0 8px #a3e635;
+  animation: pulse-ar 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse-ar {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+.ar-select-device {
+  padding: 0.35rem 0.55rem;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  max-width: 170px;
+}
+
+/* Grupo de ajuste numérico de dimensiones reales en AR */
+.ar-dim-inputs {
+  background: rgba(255, 253, 248, 0.95);
+  border: 1px solid var(--color-forest);
+  box-shadow: var(--shadow-xs);
+}
+
+.ar-dim-inputs label {
+  color: var(--color-forest);
+  font-weight: 700;
+}
+
+.ar-dim-inputs input[type="number"] {
+  width: 58px;
+  font-weight: 700;
+  color: var(--color-ink);
+  text-align: center;
+}
+
+/* Botón de acceso directo en viewport del lienzo principal */
+.canvas-quick-ar-btn {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 15;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(36, 51, 45, 0.94);
+  color: #fffdf8;
+  border: 1px solid rgba(255, 253, 248, 0.28);
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(4px);
+  transition: transform 120ms ease, background-color 120ms ease;
+}
+
+.canvas-quick-ar-btn:hover {
+  background: var(--color-forest-dark);
+  transform: translateY(-1px);
+}
+
+.btn-forest-cta {
+  background: var(--color-forest) !important;
+  border-color: var(--color-forest-dark) !important;
+  color: #fffdf8 !important;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-forest-cta:hover {
+  background: var(--color-forest-dark) !important;
+}
+
+@media (min-width: 1200px) {
+  .ar-workspace.is-side-controls {
+    flex-direction: row;
+  }
+}
+
