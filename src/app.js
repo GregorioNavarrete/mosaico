@@ -22,8 +22,8 @@ export function createApp() {
       contentSecurityPolicy: false, // Se ajustará por vista en Fase 1 al añadir Canvas/Workers/Media
     })
   );
-  app.use(express.json({ limit: '15mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+  app.use(express.json({ limit: '35mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '35mb' }));
 
   // Estáticos públicos y motor compartido offline
   app.use('/public', express.static(path.join(ROOT_DIR, 'public')));

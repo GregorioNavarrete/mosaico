@@ -9,16 +9,20 @@ const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 
 export async function bootstrapRuntimeDirs() {
-  await fs.mkdir(path.join(ROOT_DIR, 'storage/uploads'), { recursive: true });
-  await fs.mkdir(path.join(ROOT_DIR, 'storage/exports'), { recursive: true });
-  await fs.mkdir(path.join(ROOT_DIR, 'storage/projects'), { recursive: true });
+  try {
+    await fs.mkdir(path.join(ROOT_DIR, 'storage/uploads'), { recursive: true });
+    await fs.mkdir(path.join(ROOT_DIR, 'storage/exports'), { recursive: true });
+    await fs.mkdir(path.join(ROOT_DIR, 'storage/projects'), { recursive: true });
 
-  await Promise.all([
-    new JsonStore(path.join(ROOT_DIR, 'data/projects.json'), []).ensureInitialized(),
-    new JsonStore(path.join(ROOT_DIR, 'data/catalogs.json'), []).ensureInitialized(),
-    new JsonStore(path.join(ROOT_DIR, 'data/stock.json'), []).ensureInitialized(),
-    new JsonStore(path.join(ROOT_DIR, 'data/gallery.json'), []).ensureInitialized(),
-  ]);
+    await Promise.all([
+      new JsonStore(path.join(ROOT_DIR, 'data/projects.json'), []).ensureInitialized(),
+      new JsonStore(path.join(ROOT_DIR, 'data/catalogs.json'), []).ensureInitialized(),
+      new JsonStore(path.join(ROOT_DIR, 'data/stock.json'), []).ensureInitialized(),
+      new JsonStore(path.join(ROOT_DIR, 'data/gallery.json'), []).ensureInitialized(),
+    ]);
+  } catch (err) {
+    console.warn('Modo stateless (sin escritura en disco):', err?.message || err);
+  }
 }
 
 const isDirectExecution = process.argv[1] && path.resolve(process.argv[1]) === __filename;

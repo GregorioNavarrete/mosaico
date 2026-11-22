@@ -26,9 +26,9 @@
       </div>
     </div>
 
-    <!-- Barra de gestión de proyectos JSON -->
-    <div class="project-bar" aria-label="Gestión de proyectos">
-      <div class="project-select-wrap">
+    <!-- Barra de título del diseño (sin guardado en servidor) -->
+    <div class="project-bar" aria-label="Título de la guía">
+      <div class="project-select-wrap hidden">
         <select id="project-select" class="select-control is-compact" title="Abrir proyecto guardado">
           <option value="">Proyecto sin guardar</option>
         </select>
@@ -40,15 +40,15 @@
           class="input-control is-compact"
           value="Mural Mediterráneo"
           maxlength="80"
-          placeholder="Nombre del proyecto"
-          aria-label="Nombre del proyecto"
+          placeholder="Nombre de tu guía"
+          aria-label="Nombre de tu guía"
         />
       </div>
       <div class="project-actions">
-        <button id="btn-project-new" type="button" class="btn btn-secondary btn-sm" title="Crear nuevo proyecto">Nuevo</button>
-        <button id="btn-project-save" type="button" class="btn btn-primary btn-sm" title="Guardar proyecto en servidor">Guardar</button>
-        <button id="btn-project-duplicate" type="button" class="btn btn-secondary btn-sm" title="Duplicar proyecto guardado">Duplicar</button>
-        <button id="btn-project-delete" type="button" class="btn btn-danger-soft btn-sm" title="Eliminar proyecto guardado">Eliminar</button>
+        <button id="btn-project-new" type="button" class="btn btn-secondary btn-sm" title="Reiniciar lienzo">Reiniciar</button>
+        <button id="btn-project-save" type="button" class="btn btn-primary btn-sm hidden">Guardar</button>
+        <button id="btn-project-duplicate" type="button" class="btn btn-secondary btn-sm hidden">Duplicar</button>
+        <button id="btn-project-delete" type="button" class="btn btn-danger-soft btn-sm hidden">Eliminar</button>
       </div>
     </div>
 

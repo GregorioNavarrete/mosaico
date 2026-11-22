@@ -1090,32 +1090,41 @@ export function createEditorController(
       return;
     }
 
-    const formData = new FormData();
-    formData.append('image', file);
-    showToast('Subiendo y validando imagen en servidor...', 'info');
+    showToast('Cargando imagen en memoria...', 'info');
 
     try {
-      const res = await fetch('/api/uploads', {
-        method: 'POST',
-        body: formData,
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('No se pudo leer el archivo de imagen.'));
+        reader.readAsDataURL(file);
       });
-      const data = await res.json();
-      if (!res.ok || !data.ok || !data.image) {
-        throw new Error(data.error || 'El servidor rechazó la imagen.');
-      }
 
       const img = new Image();
       img.onload = async () => {
-        const ratio =
-          data.image.width && data.image.height
-            ? data.image.width / data.image.height
-            : img.width / img.height;
-
+        const ratio = img.width / Math.max(1, img.height);
         const state = store.getState();
+
+        // Comprimir suavemente en memoria si excede 2200px para envíos rápidos sin disco
+        let exportDataUrl = dataUrl;
+        const maxDim = Math.max(img.width, img.height);
+        if (maxDim > 2200 && doc) {
+          const scale = 2200 / maxDim;
+          const off = doc.createElement('canvas');
+          off.width = Math.round(img.width * scale);
+          off.height = Math.round(img.height * scale);
+          const ctx = off.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, off.width, off.height);
+            exportDataUrl = off.toDataURL('image/jpeg', 0.9);
+          }
+        }
+
         store.setSourceImage({
           image: img,
-          imageId: data.image.id,
-          name: data.image.originalName || file.name,
+          imageId: null,
+          dataUrl: exportDataUrl,
+          name: file.name,
           aspectRatio: ratio,
         });
 
@@ -1132,12 +1141,12 @@ export function createEditorController(
           arController.refreshArtwork();
         }
         syncAllUI();
-        showToast(`Imagen cargada (${img.width} × ${img.height} px)`, 'success');
+        showToast(`Imagen lista (${img.width} × ${img.height} px)`, 'success');
       };
-      img.onerror = () => showToast('No se pudo decodificar la imagen subida.', 'error');
-      img.src = data.image.url;
+      img.onerror = () => showToast('No se pudo decodificar la imagen seleccionada.', 'error');
+      img.src = dataUrl;
     } catch (err) {
-      showToast(err.message || 'Error al subir la imagen.', 'error');
+      showToast(err.message || 'Error al cargar la imagen.', 'error');
     }
   }
 
@@ -1351,8 +1360,47 @@ export function createEditorController(
         dom.pdfModal.classList.remove('is-open');
       }, 350);
     } catch (err) {
-      showToast(err.message || 'No se pudo exportar el PDF.', 'error');
-      dom.pdfExportStatus.classList.add('hidden');
+      // Respaldo 100% en navegador si el servidor hosteado limita disco, tamaño o tiempo de respuesta
+      try {
+        dom.pdfStatusText.textContent = 'Generando PDF 1:1 directo en tu navegador...';
+        dom.pdfProgressBar.style.width = '70%';
+        dom.pdfPercentLabel.textContent = '70%';
+
+        const offCanvas = doc.createElement('canvas');
+        renderArtworkSnapshotToCanvas(state, offCanvas, {
+          maxDimPx: 3200,
+          includeSheetGrid: false,
+        });
+
+        const fallback = await generateClientPdfFallback({
+          config: state.config,
+          sourceCanvas: offCanvas,
+          selectedSheets: exportOptions.selectedSheets,
+          includeCover: exportOptions.includeCover,
+          doc,
+        });
+
+        const blob = new Blob([fallback.bytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const link = doc.createElement('a');
+        link.href = url;
+        link.download = fallback.filename;
+        doc.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+        dom.pdfProgressBar.style.width = '100%';
+        dom.pdfPercentLabel.textContent = '100%';
+        dom.pdfStatusText.textContent = `¡PDF generado en navegador (${fallback.pageCount} págs)!`;
+        showToast(`PDF descargado (${fallback.pageCount} págs)`, 'success');
+        setTimeout(() => {
+          dom.pdfModal.classList.remove('is-open');
+        }, 350);
+      } catch (fallbackErr) {
+        showToast(fallbackErr?.message || err?.message || 'No se pudo exportar el PDF.', 'error');
+        dom.pdfExportStatus.classList.add('hidden');
+      }
     } finally {
       isExportingPdf = false;
       dom.btnPdfCancelExport.disabled = false;

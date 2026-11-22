@@ -283,4 +283,37 @@ test('POST/GET /api/projects y POST /api/export/pdf soportan Modo Póster, split
   const badSplitJson = await badSplitRes.json();
   assert.equal(badSplitJson.ok, false);
   assert.equal(badSplitJson.code, 'INVALID_SPLIT_MODE');
+
+  // 6. Exportación PDF 100% stateless enviando sourceImageDataUrl en RAM sin depender de storage/uploads
+  const pngBuf = await sharp({
+    create: { width: 80, height: 60, channels: 3, background: { r: 220, g: 120, b: 60 } },
+  })
+    .png()
+    .toBuffer();
+  const inlineDataUrl = `data:image/png;base64,${pngBuf.toString('base64')}`;
+
+  const statelessRes = await fetch(`${baseUrl}/api/export/pdf`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sourceImageDataUrl: inlineDataUrl,
+      sourceName: 'sin_guardar.png',
+      config: {
+        ...getJson.project.config,
+        widthCm: 40,
+        heightCm: 30,
+        mosaicMode: false,
+        posterFilterMode: 'contrast_bw',
+      },
+      exportOptions: {
+        splitMode: 'single',
+        includeCover: true,
+        includePalette: false,
+      },
+    }),
+  });
+  assert.equal(statelessRes.status, 200);
+  assert.equal(statelessRes.headers.get('content-type'), 'application/pdf');
+  const statelessPdfBuf = Buffer.from(await statelessRes.arrayBuffer());
+  assert.equal(statelessPdfBuf.subarray(0, 5).toString('ascii'), '%PDF-');
 });

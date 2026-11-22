@@ -182,6 +182,7 @@ export function createStudioStore(initialConfig = {}) {
     // Imagen fuente
     sourceImage: null,
     sourceImageId: null,
+    sourceImageDataUrl: null,
     sourceName: 'ejemplo_paisaje_mosaico.png',
     aspectRatio: 4 / 3,
     keepRatio: true,
@@ -340,9 +341,16 @@ export function createStudioStore(initialConfig = {}) {
     state.redoStack = [];
   }
 
-  function setSourceImage({ image = null, imageId = null, name = 'ejemplo_paisaje_mosaico.png', aspectRatio }) {
+  function setSourceImage({
+    image = null,
+    imageId = null,
+    dataUrl = null,
+    name = 'ejemplo_paisaje_mosaico.png',
+    aspectRatio,
+  }) {
     state.sourceImage = image;
     state.sourceImageId = imageId;
+    state.sourceImageDataUrl = dataUrl;
     state.sourceName = name;
     if (Number.isFinite(aspectRatio) && aspectRatio > 0) {
       state.aspectRatio = aspectRatio;
@@ -690,8 +698,11 @@ export function createStudioStore(initialConfig = {}) {
       exportOptions?.allowLargePoster || !cfg.mosaicMode || splitMode !== 'single'
     );
 
+    const needsSourceImage = !cfg.mosaicMode || cfg.renderMode === 'image';
     return {
       sourceImageId: state.sourceImageId || undefined,
+      sourceImageDataUrl:
+        needsSourceImage && state.sourceImageDataUrl ? state.sourceImageDataUrl : undefined,
       sourceName: state.sourceName || 'ejemplo_paisaje_mosaico.png',
       config: cfg,
       palette: state.palette.map((p) => ({

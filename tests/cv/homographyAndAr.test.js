@@ -697,4 +697,53 @@ test('Navegador real Chromium ejecuta homography.js, ar-camera.css y cameraArCon
   }
 });
 
+test('arSpatialTracker calcula dimensiones de pared por 2 toques y proyecta anclaje VR al girar y acercarse', async () => {
+  const {
+    computeWallCalibrationFromTwoPoints,
+    computeAnchoredCornersFromMotion,
+  } = await import('../../public/js/controllers/arSpatialTracker.js');
+
+  // Calibración por 2 puntos de una puerta de 80 cm ocupando 200 px en escena 800x600
+  const cal = computeWallCalibrationFromTwoPoints({
+    ptA: [100, 100],
+    ptB: [300, 100],
+    knownCm: 80,
+    sceneW: 800,
+    sceneH: 600,
+    fovDeg: 62,
+  });
+  assert.ok(cal);
+  assert.equal(cal.distPx, 200);
+  assert.equal(cal.pxPerCm, 2.5);
+  assert.equal(cal.wallWidthCm, 320); // 800 / 2.5 = 320 cm (3.20 m)
+  assert.equal(cal.wallHeightCm, 240); // 600 / 2.5 = 240 cm (2.40 m)
+  assert.ok(cal.distanceM > 2.0 && cal.distanceM < 3.5);
+
+  // Anclaje en pared: si gira cámara 10° y se acerca a la mitad de distancia, el cuadro se desplaza y escala x2 alrededor del centro
+  const anchorCorners = [
+    [250, 150],
+    [550, 150],
+    [550, 450],
+    [250, 450],
+  ];
+  const moved = computeAnchoredCornersFromMotion({
+    anchorCorners,
+    anchorOrientation: { alpha: 100, beta: 90, gamma: 0 },
+    currentOrientation: { alpha: 90, beta: 90, gamma: 0 },
+    anchorDistanceM: 3.0,
+    currentDistanceM: 1.5,
+    sceneW: 800,
+    sceneH: 600,
+    fovDeg: 62,
+  });
+  assert.equal(moved.length, 4);
+  // El ancho del cuadro se duplicó al acercarse a mitad de distancia (de 300px a 600px)
+  const newWidth = moved[1][0] - moved[0][0];
+  assert.ok(Math.abs(newWidth - 600) < 1e-6, `Ancho esperado 600, obtenido ${newWidth}`);
+  // Al girar alpha -10°, el cuadro se desplazó a la izquierda respecto al centro
+  const newCenterX = (moved[0][0] + moved[1][0]) / 2;
+  assert.ok(newCenterX < 400, `Centro X esperado < 400 al girar, obtenido ${newCenterX}`);
+});
+
+
 

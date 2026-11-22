@@ -88,7 +88,18 @@ export async function exportPdfHandler(req, res, next) {
       normalizedPayload.grid = { rle: normalizedPayload.gridRle };
     }
 
+    const inlineDataUrl =
+      typeof payload.sourceImageDataUrl === 'string' && payload.sourceImageDataUrl.startsWith('data:image/')
+        ? payload.sourceImageDataUrl
+        : null;
+
     const result = await generateSplitPdfExport(normalizedPayload, async (sourceImageId) => {
+      if (inlineDataUrl) {
+        const commaIdx = inlineDataUrl.indexOf(',');
+        if (commaIdx > 0) {
+          return Buffer.from(inlineDataUrl.slice(commaIdx + 1), 'base64');
+        }
+      }
       const buf = await readUploadedImageBuffer(sourceImageId);
       if (!buf) {
         throw new HttpError(

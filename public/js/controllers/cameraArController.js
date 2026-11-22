@@ -8,6 +8,12 @@ import {
   computeRealWorldQuadMetrics,
   getBuiltInArSceneSvg,
 } from '/shared/homography.js';
+import {
+  computeWallCalibrationFromTwoPoints,
+  computeAnchoredCornersFromMotion,
+  createOpticalMotionEstimator,
+  isWebXrArSupported,
+} from '/public/js/controllers/arSpatialTracker.js';
 
 function clamp(v, min, max) {
   return v < min ? min : v > max ? max : v;
@@ -140,6 +146,20 @@ export function createCameraArController({
     lastH: null,
     lastInvH: null,
     lastMaxErrorPx: 0,
+    // Anclaje espacial en pared + medición 2 toques
+    isAnchored: false,
+    anchorCorners: null,
+    anchorOrientation: { alpha: 0, beta: 90, gamma: 0 },
+    currentOrientation: { alpha: 0, beta: 90, gamma: 0 },
+    anchorDistanceM: 2.2,
+    currentDistanceM: 2.2,
+    wallWidthCm: null,
+    wallHeightCm: null,
+    measureMode: false,
+    measureKnownCm: 80,
+    measurePoints: [],
+    webXrAvailable: false,
+    drawerCollapsed: false,
   };
 
   let mediaStream = null;
@@ -148,6 +168,9 @@ export function createCameraArController({
   let pendingTransformSync = false;
   let activeDrag = null; // { type: 'corner', index, startCorners } | { type: 'move', startX, startY, startCorners }
   let boundResizeListener = false;
+  let spatialRafId = null;
+  let orientationHandler = null;
+  const opticalTracker = createOpticalMotionEstimator(doc);
 
   function ensureOverlayMarkup() {
     if (!doc) return null;
@@ -172,21 +195,24 @@ export function createCameraArController({
     overlayEl.innerHTML = `
       <header class="ar-topbar">
         <div class="ar-topbar-title">
-          <span class="ar-badge">AR · Homografía 4 pts</span>
+          <button id="btn-ar-close" type="button" class="ar-btn ar-btn-back" title="Cerrar cámara y volver al editor">← Volver</button>
+          <span class="ar-badge">AR · Pared/Piso</span>
           <h2 class="ar-heading">Probar en Pared / Piso</h2>
           <span id="ar-status-text" class="ar-status-text">Listo para iniciar</span>
         </div>
         <div class="ar-topbar-actions">
-          <button id="btn-ar-start-camera" type="button" class="ar-btn ar-btn-forest" title="Iniciar o reiniciar cámara en vivo">📷 Cámara en vivo</button>
+          <button id="btn-ar-start-camera" type="button" class="ar-btn ar-btn-forest" title="Iniciar o reiniciar cámara en vivo">📷 Cámara</button>
+          <button id="btn-ar-anchor-wall" type="button" class="ar-btn ar-btn-anchor" title="Fijar mural en la pared (VR): al mover o acercar el celular se mantiene pegado a la pared">📌 Fijar en Pared</button>
+          <button id="btn-ar-measure-wall" type="button" class="ar-btn" title="Medir ancho/alto de pared y distancia tocando 2 puntos">📏 Medir Pared</button>
           <select id="select-ar-camera-device" class="ar-btn ar-select-device hidden" title="Seleccionar cámara conectada"></select>
-          <button id="btn-ar-flip-camera" type="button" class="ar-btn" title="Alternar cámara trasera o frontal">⇄ Cambiar cámara</button>
-          <button id="btn-ar-snap-photo" type="button" class="ar-btn" title="Tomar foto con la cámara (ideal para celulares y tablets)">📸 Tomar foto</button>
+          <button id="btn-ar-flip-camera" type="button" class="ar-btn" title="Alternar cámara trasera o frontal">⇄ Girar</button>
+          <button id="btn-ar-snap-photo" type="button" class="ar-btn" title="Tomar foto con la cámara (ideal para celulares)">📸 Foto</button>
           <input id="ar-photo-capture" type="file" accept="image/*" capture="environment" class="hidden" />
-          <button id="btn-ar-upload-photo" type="button" class="ar-btn" title="Subir foto guardada en tu equipo">Subir foto</button>
+          <button id="btn-ar-upload-photo" type="button" class="ar-btn ar-hide-mobile" title="Subir foto guardada en tu equipo">Subir foto</button>
           <input id="ar-photo-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" />
-          <button id="btn-ar-scene-wall" type="button" class="ar-btn">Escena Pared</button>
-          <button id="btn-ar-scene-floor" type="button" class="ar-btn">Escena Piso</button>
-          <button id="btn-ar-close" type="button" class="ar-btn ar-btn-terra" title="Cerrar simulador y volver al editor">✕ Volver al Editor</button>
+          <button id="btn-ar-scene-wall" type="button" class="ar-btn ar-hide-mobile">Escena Pared</button>
+          <button id="btn-ar-scene-floor" type="button" class="ar-btn ar-hide-mobile">Escena Piso</button>
+          <button id="btn-ar-toggle-drawer" type="button" class="ar-btn ar-mobile-only" title="Mostrar u ocultar controles">⚙️ Ajustes</button>
         </div>
       </header>
 
@@ -196,10 +222,29 @@ export function createCameraArController({
             <video id="ar-video" autoplay playsinline muted class="hidden"></video>
             <img id="ar-photo-img" alt="Fondo de pared o piso para simulación AR" />
             <div id="ar-live-indicator" class="ar-live-badge hidden">Cámara en Vivo</div>
+            <div id="ar-wall-info-pill" class="ar-wall-info-pill hidden">Pared: -- × -- m · Dist: 2.2 m</div>
 
             <div id="ar-camera-notice" class="ar-camera-notice hidden" role="status">
               <span id="ar-camera-notice-text"></span>
               <button id="btn-ar-notice-dismiss" type="button" class="ar-btn">Entendido</button>
+            </div>
+
+            <div id="ar-measure-banner" class="ar-measure-banner hidden">
+              <div class="ar-measure-header">
+                <strong id="ar-measure-step-text">1. Elige una referencia conocida y toca 2 puntos en la pared:</strong>
+                <button id="btn-ar-measure-cancel" type="button" class="ar-btn ar-btn-terra">✕</button>
+              </div>
+              <div class="ar-measure-presets">
+                <button type="button" class="ar-btn ar-measure-preset is-active" data-cm="80">🚪 Puerta (80 cm)</button>
+                <button type="button" class="ar-btn ar-measure-preset" data-cm="29.7">📄 Hoja A4 (29.7 cm)</button>
+                <button type="button" class="ar-btn ar-measure-preset" data-cm="30">🧱 Baldosa (30 cm)</button>
+                <button type="button" class="ar-btn ar-measure-preset" data-cm="100">📏 Metro (100 cm)</button>
+                <label class="ar-measure-custom">
+                  <span>Otro:</span>
+                  <input id="input-ar-measure-cm" type="number" min="5" max="2000" step="1" value="80" />
+                  <span>cm</span>
+                </label>
+              </div>
             </div>
 
             <div id="ar-warped-layer">
@@ -210,6 +255,12 @@ export function createCameraArController({
               <line id="ar-diag-1" class="ar-quad-diags" x1="0" y1="0" x2="0" y2="0" />
               <line id="ar-diag-2" class="ar-quad-diags" x1="0" y1="0" x2="0" y2="0" />
               <polygon id="ar-quad-poly" class="ar-quad-poly" points="0,0 100,0 100,100 0,100" />
+            </svg>
+
+            <svg id="ar-measure-svg" class="ar-measure-svg hidden" aria-hidden="true">
+              <line id="ar-measure-line" x1="0" y1="0" x2="0" y2="0" />
+              <circle id="ar-measure-pt-a" cx="0" cy="0" r="8" />
+              <circle id="ar-measure-pt-b" cx="0" cy="0" r="8" />
             </svg>
 
             <div id="ar-dim-top" class="ar-dim-callout">↔ 120 cm</div>
@@ -224,13 +275,19 @@ export function createCameraArController({
           </div>
         </div>
 
-        <div class="ar-controls-bar">
+        <div id="ar-controls-bar" class="ar-controls-bar">
           <div class="ar-control-group">
             <div class="ar-field ar-dim-inputs" title="Ajustar dimensiones reales del mural (cm) directamente en la vista">
               <label>Medidas (cm):</label>
               <input id="input-ar-mural-w" type="number" min="5" max="2500" step="0.5" value="120" title="Ancho en cm" />
               <span>×</span>
               <input id="input-ar-mural-h" type="number" min="5" max="2500" step="0.5" value="90" title="Alto en cm" />
+            </div>
+
+            <div class="ar-field" title="Ajustar distancia estimada a la pared para acercar o alejar a escala real">
+              <label for="range-ar-distance">Distancia</label>
+              <input id="range-ar-distance" type="range" min="0.5" max="6.0" step="0.1" value="2.2" />
+              <span id="val-ar-distance" class="ar-mono-val">2.2 m</span>
             </div>
 
             <button id="btn-ar-preset-wall" type="button" class="ar-btn" title="Proyectar sobre pared vertical">🧱 Pared</button>
@@ -251,7 +308,7 @@ export function createCameraArController({
 
             <label class="ar-toggle-label" title="Parpadeo intermitente para comparar obra con pared real">
               <input id="chk-ar-strobe" type="checkbox" />
-              <span>Modo Strobe</span>
+              <span>Strobe</span>
             </label>
 
             <div class="ar-field">
@@ -262,18 +319,18 @@ export function createCameraArController({
 
             <label class="ar-toggle-label" title="Mostrar solo líneas de contorno transparentes para calcar en pared">
               <input id="chk-ar-contour" type="checkbox" />
-              <span>Solo contorno para calcar</span>
+              <span>Solo contorno</span>
             </label>
 
             <div class="ar-field" title="Ancho físico de referencia del muro o piso visible para estimar escala exacta">
-              <label for="input-ar-ref-wall-cm">Ancho real pared/piso</label>
+              <label for="input-ar-ref-wall-cm">Ancho pared</label>
               <input id="input-ar-ref-wall-cm" type="number" min="20" max="3000" step="5" placeholder="ej. 300" />
               <span>cm</span>
             </div>
           </div>
 
           <div class="ar-control-group">
-            <button id="btn-ar-capture-png" type="button" class="ar-btn ar-btn-forest" title="Descargar imagen PNG con la cámara, obra proyectada y medidas">📸 Guardar Foto con Medidas (.png)</button>
+            <button id="btn-ar-capture-png" type="button" class="ar-btn ar-btn-forest" title="Descargar imagen PNG con la cámara, obra proyectada y medidas">📸 Guardar Foto (.png)</button>
           </div>
         </div>
       </div>
@@ -289,6 +346,10 @@ export function createCameraArController({
     dom = {
       statusText: overlayEl.querySelector('#ar-status-text'),
       btnStartCamera: overlayEl.querySelector('#btn-ar-start-camera'),
+      btnAnchorWall: overlayEl.querySelector('#btn-ar-anchor-wall'),
+      btnMeasureWall: overlayEl.querySelector('#btn-ar-measure-wall'),
+      btnToggleDrawer: overlayEl.querySelector('#btn-ar-toggle-drawer'),
+      controlsBar: overlayEl.querySelector('#ar-controls-bar'),
       selectCameraDevice: overlayEl.querySelector('#select-ar-camera-device'),
       btnFlipCamera: overlayEl.querySelector('#btn-ar-flip-camera'),
       btnSnapPhoto: overlayEl.querySelector('#btn-ar-snap-photo'),
@@ -302,9 +363,19 @@ export function createCameraArController({
       video: overlayEl.querySelector('#ar-video'),
       photoImg: overlayEl.querySelector('#ar-photo-img'),
       liveIndicator: overlayEl.querySelector('#ar-live-indicator'),
+      wallInfoPill: overlayEl.querySelector('#ar-wall-info-pill'),
       cameraNotice: overlayEl.querySelector('#ar-camera-notice'),
       cameraNoticeText: overlayEl.querySelector('#ar-camera-notice-text'),
       btnNoticeDismiss: overlayEl.querySelector('#btn-ar-notice-dismiss'),
+      measureBanner: overlayEl.querySelector('#ar-measure-banner'),
+      measureStepText: overlayEl.querySelector('#ar-measure-step-text'),
+      btnMeasureCancel: overlayEl.querySelector('#btn-ar-measure-cancel'),
+      inputMeasureCm: overlayEl.querySelector('#input-ar-measure-cm'),
+      measurePresets: Array.from(overlayEl.querySelectorAll('.ar-measure-preset')),
+      measureSvg: overlayEl.querySelector('#ar-measure-svg'),
+      measureLine: overlayEl.querySelector('#ar-measure-line'),
+      measurePtA: overlayEl.querySelector('#ar-measure-pt-a'),
+      measurePtB: overlayEl.querySelector('#ar-measure-pt-b'),
       warpedLayer: overlayEl.querySelector('#ar-warped-layer'),
       artworkCanvas: overlayEl.querySelector('#ar-artwork-canvas'),
       quadPoly: overlayEl.querySelector('#ar-quad-poly'),
@@ -316,6 +387,8 @@ export function createCameraArController({
       pins: Array.from(overlayEl.querySelectorAll('.ar-corner-pin')),
       inputMuralW: overlayEl.querySelector('#input-ar-mural-w'),
       inputMuralH: overlayEl.querySelector('#input-ar-mural-h'),
+      rangeDistance: overlayEl.querySelector('#range-ar-distance'),
+      valDistance: overlayEl.querySelector('#val-ar-distance'),
       btnPresetWall: overlayEl.querySelector('#btn-ar-preset-wall'),
       btnPresetFloor: overlayEl.querySelector('#btn-ar-preset-floor'),
       btnFitAspect: overlayEl.querySelector('#btn-ar-fit-aspect'),
@@ -938,12 +1011,281 @@ export function createCameraArController({
     }
   }
 
+  function updateWallInfoPill() {
+    if (!dom.wallInfoPill) return;
+    const dist = (arState.currentDistanceM || 2.2).toFixed(1);
+    if (arState.wallWidthCm && arState.wallHeightCm) {
+      const wM = (arState.wallWidthCm / 100).toFixed(2);
+      const hM = (arState.wallHeightCm / 100).toFixed(2);
+      const cfg = store.getState().config || {};
+      const fits =
+        (Number(cfg.widthCm) || 120) <= arState.wallWidthCm &&
+        (Number(cfg.heightCm) || 90) <= arState.wallHeightCm;
+      dom.wallInfoPill.textContent = `Pared: ${wM} × ${hM} m · Dist: ${dist} m · ${fits ? 'Cabe ✓' : 'Excede pared'}`;
+      dom.wallInfoPill.classList.remove('hidden');
+    } else if (arState.isAnchored) {
+      dom.wallInfoPill.textContent = `📌 Anclado a pared · Dist: ${dist} m`;
+      dom.wallInfoPill.classList.remove('hidden');
+    } else {
+      dom.wallInfoPill.classList.add('hidden');
+    }
+  }
+
+  function stopSpatialTracking() {
+    arState.isAnchored = false;
+    if (spatialRafId !== null && typeof cancelAnimationFrame === 'function') {
+      cancelAnimationFrame(spatialRafId);
+      spatialRafId = null;
+    }
+    if (orientationHandler && win) {
+      win.removeEventListener('deviceorientation', orientationHandler);
+      orientationHandler = null;
+    }
+    if (dom.btnAnchorWall) {
+      dom.btnAnchorWall.classList.remove('is-active');
+      dom.btnAnchorWall.textContent = '📌 Fijar en Pared';
+    }
+    updateWallInfoPill();
+  }
+
+  async function toggleWallAnchor() {
+    if (arState.isAnchored) {
+      stopSpatialTracking();
+      showToast('Mural liberado para reubicar manualmente', 'info');
+      return;
+    }
+
+    if (!arState.corners) applyPreset(arState.sceneType || 'wall');
+
+    // Solicitar permiso de giroscopio en iOS 13+ si aplica
+    if (win?.DeviceOrientationEvent && typeof win.DeviceOrientationEvent.requestPermission === 'function') {
+      try {
+        await win.DeviceOrientationEvent.requestPermission();
+      } catch {
+        // continuar con tracker óptico si se rechaza
+      }
+    }
+
+    arState.isAnchored = true;
+    arState.anchorCorners = arState.corners.map((p) => [...p]);
+    arState.anchorDistanceM = arState.currentDistanceM || 2.2;
+    arState.anchorOrientation = { ...arState.currentOrientation };
+    let hasOrientationReading = false;
+    opticalTracker.reset();
+
+    if (win) {
+      orientationHandler = (ev) => {
+        if (ev.alpha === null && ev.beta === null) return;
+        const nextOri = {
+          alpha: Number(ev.alpha) || 0,
+          beta: Number(ev.beta) || 90,
+          gamma: Number(ev.gamma) || 0,
+        };
+        if (!hasOrientationReading) {
+          arState.anchorOrientation = { ...nextOri };
+          hasOrientationReading = true;
+        }
+        arState.currentOrientation = nextOri;
+      };
+      win.addEventListener('deviceorientation', orientationHandler, true);
+    }
+
+    if (dom.btnAnchorWall) {
+      dom.btnAnchorWall.classList.add('is-active');
+      dom.btnAnchorWall.textContent = '🔓 Soltar Pared';
+    }
+    updateWallInfoPill();
+    showToast('Mural fijado en la pared: muévete o acércate para inspeccionar detalles', 'success');
+
+    let lastStepMs = 0;
+    const tick = (now) => {
+      if (!arState.isOpen || !arState.isAnchored) return;
+      if (now - lastStepMs >= 50) {
+        lastStepMs = now;
+        const { w, h } = getStageDimensions(dom.sceneBox);
+        const opt =
+          arState.sourceMode === 'camera' && dom.video
+            ? opticalTracker.step(dom.video, w, h)
+            : { shiftX: 0, shiftY: 0, scale: 1 };
+
+        const projected = computeAnchoredCornersFromMotion({
+          anchorCorners: arState.anchorCorners,
+          anchorOrientation: arState.anchorOrientation,
+          currentOrientation: arState.currentOrientation,
+          anchorDistanceM: arState.anchorDistanceM,
+          currentDistanceM: arState.currentDistanceM,
+          sceneW: w,
+          sceneH: h,
+          opticalShiftPx: [opt.shiftX, opt.shiftY],
+          opticalScale: opt.scale,
+        });
+        if (projected) {
+          arState.corners = projected;
+          renderTransformNow();
+        }
+      }
+      if (typeof requestAnimationFrame === 'function') {
+        spatialRafId = requestAnimationFrame(tick);
+      }
+    };
+    if (typeof requestAnimationFrame === 'function') {
+      spatialRafId = requestAnimationFrame(tick);
+    }
+  }
+
+  function applyDistanceZoom(newDistM) {
+    const dist = clamp(Number(newDistM) || 2.2, 0.5, 6.0);
+    const prevDist = arState.currentDistanceM || 2.2;
+    arState.currentDistanceM = dist;
+    if (dom.rangeDistance) dom.rangeDistance.value = String(dist.toFixed(1));
+    if (dom.valDistance) dom.valDistance.textContent = `${dist.toFixed(1)} m`;
+
+    if (!arState.isAnchored && arState.corners) {
+      const ratio = clamp(prevDist / dist, 0.4, 2.5);
+      const { w, h } = getStageDimensions(dom.sceneBox);
+      const cx = w / 2;
+      const cy = h / 2;
+      arState.corners = arState.corners.map(([x, y]) => [
+        cx + (x - cx) * ratio,
+        cy + (y - cy) * ratio,
+      ]);
+      renderTransformNow();
+    }
+    updateWallInfoPill();
+  }
+
+  function renderMeasureOverlay() {
+    if (!dom.measureSvg || !dom.measureLine || !dom.measurePtA || !dom.measurePtB) return;
+    const pts = arState.measurePoints || [];
+    if (pts.length === 0) {
+      dom.measureSvg.classList.add('hidden');
+      return;
+    }
+    dom.measureSvg.classList.remove('hidden');
+    const [a, b] = pts;
+    dom.measurePtA.setAttribute('cx', String(a[0]));
+    dom.measurePtA.setAttribute('cy', String(a[1]));
+    if (b) {
+      dom.measurePtB.style.display = '';
+      dom.measurePtB.setAttribute('cx', String(b[0]));
+      dom.measurePtB.setAttribute('cy', String(b[1]));
+      dom.measureLine.setAttribute('x1', String(a[0]));
+      dom.measureLine.setAttribute('y1', String(a[1]));
+      dom.measureLine.setAttribute('x2', String(b[0]));
+      dom.measureLine.setAttribute('y2', String(b[1]));
+    } else {
+      dom.measurePtB.style.display = 'none';
+      dom.measureLine.setAttribute('x1', String(a[0]));
+      dom.measureLine.setAttribute('y1', String(a[1]));
+      dom.measureLine.setAttribute('x2', String(a[0]));
+      dom.measureLine.setAttribute('y2', String(a[1]));
+    }
+  }
+
+  function setMeasureMode(enabled) {
+    arState.measureMode = Boolean(enabled);
+    arState.measurePoints = [];
+    renderMeasureOverlay();
+    if (dom.measureBanner) {
+      dom.measureBanner.classList.toggle('hidden', !arState.measureMode);
+    }
+    if (dom.btnMeasureWall) {
+      dom.btnMeasureWall.classList.toggle('is-active', arState.measureMode);
+    }
+    if (dom.sceneBox) {
+      dom.sceneBox.classList.toggle('is-measuring', arState.measureMode);
+    }
+    if (dom.measureStepText) {
+      dom.measureStepText.textContent =
+        '1. Elige una referencia conocida y toca el PUNTO 1 en la pared:';
+    }
+  }
+
+  function handleMeasureTap(e) {
+    if (!arState.measureMode || !dom.sceneBox) return;
+    const rect = dom.sceneBox.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    arState.measurePoints.push([x, y]);
+    renderMeasureOverlay();
+
+    if (arState.measurePoints.length === 1) {
+      if (dom.measureStepText) {
+        dom.measureStepText.textContent = '2. Ahora toca el PUNTO 2 para completar la medida:';
+      }
+      return;
+    }
+
+    if (arState.measurePoints.length >= 2) {
+      const [ptA, ptB] = arState.measurePoints;
+      const { w, h } = getStageDimensions(dom.sceneBox);
+      const knownCm = Number(dom.inputMeasureCm?.value) || arState.measureKnownCm || 80;
+      const res = computeWallCalibrationFromTwoPoints({
+        ptA,
+        ptB,
+        knownCm,
+        sceneW: w,
+        sceneH: h,
+      });
+
+      if (res) {
+        arState.wallWidthCm = res.wallWidthCm;
+        arState.wallHeightCm = res.wallHeightCm;
+        arState.referenceWallWidthCm = Math.round(res.wallWidthCm);
+        arState.currentDistanceM = res.distanceM;
+        if (dom.inputRefWallCm) dom.inputRefWallCm.value = String(Math.round(res.wallWidthCm));
+        if (dom.rangeDistance) dom.rangeDistance.value = String(clamp(res.distanceM, 0.5, 6.0).toFixed(1));
+        if (dom.valDistance) dom.valDistance.textContent = `${res.distanceM.toFixed(1)} m`;
+
+        applyReferenceScaleZoom(res.wallWidthCm);
+        updateWallInfoPill();
+        showToast(
+          `Pared calibrada: ${(res.wallWidthCm / 100).toFixed(2)} × ${(res.wallHeightCm / 100).toFixed(2)} m · Distancia ~${res.distanceM.toFixed(1)} m`,
+          'success'
+        );
+      } else {
+        showToast('Toca dos puntos más separados para calibrar con precisión.', 'warn');
+      }
+
+      setTimeout(() => setMeasureMode(false), 700);
+    }
+  }
+
   function bindOverlayEvents() {
     if (!overlayEl) return;
 
     dom.btnClose?.addEventListener('click', close);
     dom.btnNoticeDismiss?.addEventListener('click', hideCameraNotice);
     dom.btnStartCamera?.addEventListener('click', () => startCamera());
+    dom.btnAnchorWall?.addEventListener('click', toggleWallAnchor);
+    dom.btnMeasureWall?.addEventListener('click', () => setMeasureMode(!arState.measureMode));
+    dom.btnMeasureCancel?.addEventListener('click', () => setMeasureMode(false));
+
+    dom.btnToggleDrawer?.addEventListener('click', () => {
+      arState.drawerCollapsed = !arState.drawerCollapsed;
+      dom.controlsBar?.classList.toggle('is-collapsed', arState.drawerCollapsed);
+    });
+
+    dom.measurePresets?.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const cm = Number.parseFloat(btn.dataset.cm || '80');
+        arState.measureKnownCm = cm;
+        if (dom.inputMeasureCm) dom.inputMeasureCm.value = String(cm);
+        dom.measurePresets.forEach((b) => b.classList.toggle('is-active', b === btn));
+      });
+    });
+
+    dom.rangeDistance?.addEventListener('input', () => {
+      applyDistanceZoom(dom.rangeDistance.value);
+    });
+
+    dom.sceneBox?.addEventListener('pointerdown', (e) => {
+      if (!arState.measureMode) return;
+      if (e.target.closest('#ar-measure-banner')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      handleMeasureTap(e);
+    });
 
     dom.btnFlipCamera?.addEventListener('click', () => {
       arState.facingMode = arState.facingMode === 'environment' ? 'user' : 'environment';
@@ -1184,6 +1526,16 @@ export function createCameraArController({
       renderTransformNow();
     }
 
+    // Solicitar pantalla completa nativa en móviles si está disponible
+    if (win && win.innerWidth <= 900 && typeof el.requestFullscreen === 'function') {
+      Promise.resolve(el.requestFullscreen()).catch(() => {});
+    }
+    isWebXrArSupported(win)
+      .then((supported) => {
+        arState.webXrAvailable = supported;
+      })
+      .catch(() => {});
+
     if (autoStartCamera) {
       Promise.resolve()
         .then(() => startCamera())
@@ -1204,12 +1556,17 @@ export function createCameraArController({
 
   function close() {
     arState.isOpen = false;
+    stopSpatialTracking();
+    setMeasureMode(false);
     stopCameraStream();
     stopStrobeTimer();
     if (transformRafId !== null && typeof cancelAnimationFrame === 'function') {
       cancelAnimationFrame(transformRafId);
       transformRafId = null;
       pendingTransformSync = false;
+    }
+    if (doc?.fullscreenElement && typeof doc.exitFullscreen === 'function') {
+      Promise.resolve(doc.exitFullscreen()).catch(() => {});
     }
     if (overlayEl) {
       overlayEl.classList.add('hidden');
@@ -1239,6 +1596,9 @@ export function createCameraArController({
     fitCornersToAspect,
     captureProposalPng,
     triggerMobilePhotoCapture,
+    toggleWallAnchor,
+    setMeasureMode,
+    applyDistanceZoom,
     getState: () => arState,
   };
 }
